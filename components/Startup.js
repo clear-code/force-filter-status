@@ -100,6 +100,41 @@ ForceFilterStatusStartupService.prototype = {
     }
   },
 
+  get allExistingFilters() {
+    var filters = [];
+    this.allExistingFilterLists.forEach(function(aFilterList) {
+      for (var i = aFilterList.filterCount - 1; i > -1; i--) {
+        let filter = aFilterList.getFilterAt(i);
+        filters.push({
+          raw:        filter,
+          serialized: this.serializeFilter(filter),
+          list:       aFilterList,
+          index:      i
+        });
+      }
+    }, this);
+    return filters;
+  },
+  serializeFilter : function(aFilter) {
+    var serialized = '';
+    var stream = {
+      close: function() {},
+      flush: function() {},
+      write: function(aString, aCount) {
+        serialized += aString;
+        return aCount;
+      },
+      writeFrom: function(aInputStream, aCount) {
+        return aCount;
+      },
+      isNonBlocking: function() {
+        return false;
+      }
+    };
+    aFilter.SaveToTextFile(stream);
+    return decodeURIComponent(escape(serialized));
+  },
+
   get allExistingFilterLists() {
     var filterLists = [];
     this.allIncomingServers.forEach(function(aIncomingServer) {
@@ -112,6 +147,7 @@ ForceFilterStatusStartupService.prototype = {
     }, this);
     return filterLists;
   },
+
   get allIncomingServers() {
     var servers = [];
     this.allAccounts.forEach(function(aAccount) {
@@ -160,9 +196,9 @@ ForceFilterStatusStartupService.prototype = {
 
     var self = this;
     var changedCount = { value : 0 };
-    var existingFilterLists = this.allExistingFilterLists;
+    var existingFilters = this.allExistingFilters;
     return Deferred.next(function() {
-        return self.removeDisallowedFilters(existingFilterLists, changedCount);
+        return self.removeDisallowedFilters(existingFilters, changedCount);
       })
       .error(function(error) {
         Components.utils.reportError(error);
@@ -175,7 +211,7 @@ ForceFilterStatusStartupService.prototype = {
       });
   },
 
-  removeDisallowedFilters : function(aFilterLists, aChangedCount)
+  removeDisallowedFilters : function(aFilters, aChangedCount)
   {
     var prefEntries = prefs.getDescendants(BASE + 'disallow.patterns.');
     if (prefEntries.length == 0)
@@ -195,38 +231,19 @@ ForceFilterStatusStartupService.prototype = {
 
     patterns = new RegExp(patterns.join('|'), 'im');
 
-    aFilterLists.forEach(function(aFilterList) {
-      var beforeCount = aChangedCount.value;
-      for (var i = aFilterList.filterCount - 1; i > -1; i--) {
-        let filter = aFilterList.getFilterAt(i);
-        let serialized = this.serializeFilter(filter);
-        if (patterns.test(serialized)) {
-          aFilterList.removeFilterAt(i);
-          aChangedCount.value++;
-        }
+    var beforeCount = aChangedCount.value;
+    for (var i = aFilters.length - 1; i > -1; i--) {
+      let filter = aFilters[i];
+      if (patterns.test(filter.serialized)) {
+        filter.list.removeFilterAt(filter.index);
+        aFilters.splice(i, 1);
+        aChangedCount.value++;
       }
-      if (aChangedCount.value != beforeCount)
+    }
+    if (aChangedCount.value != beforeCount)
+      this.allExistingFilterLists.forEach(function(aFilterList) {
         aFilterList.saveToDefaultFile();
-    }, this);
-  },
-  serializeFilter : function(aFilter) {
-    var serialized = '';
-    var stream = {
-      close: function() {},
-      flush: function() {},
-      write: function(aString, aCount) {
-        serialized += aString;
-        return aCount;
-      },
-      writeFrom: function(aInputStream, aCount) {
-        return aCount;
-      },
-      isNonBlocking: function() {
-        return false;
-      }
-    };
-    aFilter.SaveToTextFile(stream);
-    return decodeURIComponent(escape(serialized));
+      });
   },
 
 
