@@ -101,9 +101,16 @@ ForceFilterStatusStartupService.prototype = {
   },
 
   get allExistingFilterLists() {
-    return this.allIncomingServers.map(function(aIncomingServer) {
-      return aIncomingServer.getFilterList(MailSession.topmostMsgWindow);
+    var filterLists = [];
+    this.allIncomingServers.forEach(function(aIncomingServer) {
+      try {
+        filterLists.push(aIncomingServer.getFilterList(MailSession.topmostMsgWindow));
+      }
+      catch(e) {
+        // this fails for local folder account
+      }
     }, this);
+    return filterLists;
   },
   get allIncomingServers() {
     var servers = [];
