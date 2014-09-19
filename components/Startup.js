@@ -212,7 +212,7 @@ ForceFilterStatusStartupService.prototype = {
 
   removeDisallowedFilters : function(aFilters, aChangedCount)
   {
-    var prefEntries = prefs.getDescendants(BASE + 'disallow.patterns.');
+    var prefEntries = prefs.getDescendant(BASE + 'disallow.patterns.');
     if (prefEntries.length == 0)
       return;
 
