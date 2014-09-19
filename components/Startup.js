@@ -81,7 +81,6 @@ ForceFilterStatusStartupService.prototype = {
 
       case 'final-ui-startup':
         ObserverService.removeObserver(this, 'final-ui-startup');
-        this.registerListener();
         var self = this;
         return this.waitUntilStarted()
           .next(function() {
