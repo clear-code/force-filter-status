@@ -210,7 +210,23 @@ ForceFilterStatusStartupService.prototype = {
     }, this);
   },
   serializeFilter : function(aFilter) {
-    retrn ''; // XXX implement me!!
+    var serialized = '';
+    var stream = {
+      close: function() {},
+      flush: function() {},
+      write: function(aString, aCount) {
+        serialized += aString;
+        return aCount;
+      },
+      writeFrom: function(aInputStream, aCount) {
+        return aCount;
+      },
+      isNonBlocking: function() {
+        return false;
+      }
+    };
+    aFilter.SaveToTextFile(stream);
+    return decodeURIComponent(escape(serialized));
   },
 
 
