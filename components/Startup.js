@@ -34,14 +34,28 @@ const kCID  = Components.ID('{c7a54030-3fd4-11e4-916c-0800200c9a66}');
 const kID   = '@clear-code.com/force-filter-status/startup;1';
 const kNAME = 'ForceFilterStatusStartupService';
 
-const Cc = Components.classes;
-const Ci = Components.interfaces;
+var Cc = Components.classes;
+var Ci = Components.interfaces;
+var Cu = Components.utils;
+var Cr = Components.results;
 
-const ObserverService = Cc['@mozilla.org/observer-service;1']
-                         .getService(Ci.nsIObserverService);
+Cu.import('resource://gre/modules/XPCOMUtils.jsm');
 
-Components.utils.import('resource://force-filter-status-modules/lib/prefs.js');
-Components.utils.import('resource://force-filter-status-modules/lib/jsdeferred.js');
+XPCOMUtils.defineLazyServiceGetter(this,
+                                   'AccountManager',
+                                   '@mozilla.org/messenger/account-manager;1',
+                                   'nsIMsgAccountManager');
+XPCOMUtils.defineLazyServiceGetter(this,
+                                   'MailSession',
+                                   '@mozilla.org/messenger/services/session;1',
+                                   'nsIMsgMailSession');
+XPCOMUtils.defineLazyServiceGetter(this,
+                                   'ObserverService',
+                                   '@mozilla.org/observer-service;1',
+                                   'nsIObserverService');
+
+Cu.import('resource://force-filter-status-modules/lib/prefs.js');
+Cu.import('resource://force-filter-status-modules/lib/jsdeferred.js');
 
 const BASE = 'extensions.force-filter-status@clear-code.com.';
 
@@ -85,6 +99,51 @@ ForceFilterStatusStartupService.prototype = {
         return;
     }
   },
+
+  get allExistingFilterLists() {
+    return this.allIncomingServers.map(function(aIncomingServer) {
+      return aIncomingServer.getFilterList(MailSession.topmostMsgWindow);
+    }, this);
+  },
+  get allIncomingServers() {
+    var servers = [];
+    this.allAccounts.forEach(function(aAccount) {
+      if (aAccount.incomingServer)
+        servers.push(aAccount.incomingServer);
+    }, this);
+    return servers;
+  },
+
+  get allAccounts() {
+    return this.toArray(AccountManager.accounts, Ci.nsIMsgAccount);
+  },
+  get allAccountKeys() {
+    return this.allAccounts.map(function(aAccount) {
+      return this.getAccountKey(aAccount);
+    }, this).filter(function(aKey) {
+      return aKey != '';
+    });
+  },
+  toArray: function (aEnumerator, aInterface) {
+    aInterface = aInterface || Ci.nsISupports;
+    var array = [];
+    if (aEnumerator instanceof Ci.nsISupportsArray) {
+      let count = aEnumerator.Count();
+      for (let i = 0; i < count; i++) {
+        array.push(aEnumerator.QueryElementAt(i, aInterface));
+      }
+    } else if (aEnumerator instanceof Ci.nsIArray) {
+      let count = aEnumerator.length;
+      for (let i = 0; i < count; i++) {
+        array.push(aEnumerator.queryElementAt(i, aInterface));
+      }
+    } else if (aEnumerator instanceof Ci.nsISimpleEnumerator) {
+      while (aEnumerator.hasMoreElements()) {
+        array.push(aEnumerator.getNext().QueryInterface(aInterface));
+      }
+    }
+    return array;
+  },
  
   checkFilters : function() 
   {
@@ -94,8 +153,9 @@ ForceFilterStatusStartupService.prototype = {
 
     var self = this;
     var changedCount = { value : 0 };
+    var existingFilterLists = this.allExistingFilterLists;
     return Deferred.next(function() {
-        return self.removeDisallowedFilters(changedCount);
+        return self.removeDisallowedFilters(existingFilterLists, changedCount);
       })
       .error(function(error) {
         Components.utils.reportError(error);
@@ -108,20 +168,42 @@ ForceFilterStatusStartupService.prototype = {
       });
   },
 
-  removeDisallowedFilters : function(aChangedCount)
+  removeDisallowedFilters : function(aFilterLists, aChangedCount)
   {
     var prefEntries = prefs.getDescendants(BASE + 'disallow.patterns.');
     if (prefEntries.length == 0)
       return;
 
+    var patterns = [];
     prefEntries.forEach(function(aKey) {
       var pattern = prefs.getPref(aKey);
       if (!pattern)
-        return null;
+        return;
 
-      //XXX implement me!!
-      // aChangedCount.value++;
-    });
+      patterns.push(pattern);
+    }, this);
+
+    if (patterns.length == 0)
+      return;
+
+    patterns = new RegExp(patterns.join('|'), 'i');
+
+    aFilterLists.forEach(function(aFilterList) {
+      var beforeCount = aChangedCount.value;
+      for (var i = aFilterList.filterCount - 1; i > -1; i--) {
+        let filter = aFilterList.getFilterAt(i);
+        let serialized = this.serializeFilter(filter);
+        if (patterns.test(serialized)) {
+          aFilterList.removeFilterAt(i);
+          aChangedCount.value++;
+        }
+      }
+      if (aChangedCount.value != beforeCount)
+        aFilterList.saveToDefaultFile();
+    }, this);
+  },
+  serializeFilter : function(aFilter) {
+    retrn ''; // XXX implement me!!
   },
 
 
