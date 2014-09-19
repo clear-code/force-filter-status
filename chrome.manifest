@@ -1,0 +1,5 @@
+component	{c7a54030-3fd4-11e4-916c-0800200c9a66}	components/Startup.js
+contract	@clear-code.com/force-filter-status/startup;1	{c7a54030-3fd4-11e4-916c-0800200c9a66}
+category	profile-after-change	ForceFilterStatusStartupService	@clear-code.com/force-filter-status/startup;1
+
+resource force-filter-status-modules modules/
