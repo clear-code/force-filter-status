@@ -193,7 +193,7 @@ ForceFilterStatusStartupService.prototype = {
     if (patterns.length == 0)
       return;
 
-    patterns = new RegExp(patterns.join('|'), 'i');
+    patterns = new RegExp(patterns.join('|'), 'im');
 
     aFilterLists.forEach(function(aFilterList) {
       var beforeCount = aChangedCount.value;
