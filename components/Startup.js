@@ -110,6 +110,8 @@ ForceFilterStatusStartupService.prototype = {
           list:       aFilterList
         });
         let index = filters.length - 1;
+        gLogger.log('detect new filter[' + index + '] -----------------\n' +
+                    filters[index].serialized);
       }
     }, this);
     return filters;
@@ -212,6 +214,7 @@ ForceFilterStatusStartupService.prototype = {
 
   removeDisallowedFilters : function(aFilters, aChangedCount)
   {
+    gLogger.log('removeDisallowedFilters');
     var prefEntries = prefs.getDescendant(BASE + 'disallow.patterns.');
     if (prefEntries.length == 0)
       return;
@@ -229,11 +232,14 @@ ForceFilterStatusStartupService.prototype = {
       return;
 
     patterns = new RegExp(patterns.join('|'), 'im');
+    gLogger.log('patterns = '+patterns);
 
     var beforeCount = aChangedCount.value;
     for (var i = aFilters.length - 1; i > -1; i--) {
+      gLogger.log('checking filter[' + i + ']...');
       let filter = aFilters[i];
       if (patterns.test(filter.serialized)) {
+        gLogger.log(' => matched');
         filter.list.removeFilter(filter.raw);
         aFilters.splice(i, 1);
         aChangedCount.value++;
