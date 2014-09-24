@@ -107,9 +107,9 @@ ForceFilterStatusStartupService.prototype = {
         filters.push({
           raw:        filter,
           serialized: this.serializeFilter(filter),
-          list:       aFilterList,
-          index:      i
+          list:       aFilterList
         });
+        let index = filters.length - 1;
       }
     }, this);
     return filters;
@@ -234,7 +234,7 @@ ForceFilterStatusStartupService.prototype = {
     for (var i = aFilters.length - 1; i > -1; i--) {
       let filter = aFilters[i];
       if (patterns.test(filter.serialized)) {
-        filter.list.removeFilterAt(filter.index);
+        filter.list.removeFilter(filter.raw);
         aFilters.splice(i, 1);
         aChangedCount.value++;
       }
