@@ -54,8 +54,8 @@ XPCOMUtils.defineLazyServiceGetter(this,
                                    '@mozilla.org/observer-service;1',
                                    'nsIObserverService');
 
+Cu.import('resource://gre/modules/Timer.jsm');
 Cu.import('resource://force-filter-status-modules/lib/prefs.js');
-Cu.import('resource://force-filter-status-modules/lib/jsdeferred.js');
 
 const BASE = 'extensions.force-filter-status@clear-code.com.';
 
@@ -81,11 +81,7 @@ ForceFilterStatusStartupService.prototype = {
 
       case 'final-ui-startup':
         ObserverService.removeObserver(this, 'final-ui-startup');
-        var self = this;
-        return this.waitUntilStarted()
-          .next(function() {
-            return self.checkFilters();
-          });
+        this.isUIStarted = true;
         return;
 
       case 'sessionstore-windows-restored':
@@ -93,8 +89,8 @@ ForceFilterStatusStartupService.prototype = {
         ObserverService.removeObserver(this, 'sessionstore-windows-restored');
         ObserverService.removeObserver(this, 'mail-startup-done');
         this.ready = true;
-        if (this.waitUntilStarted_trigger)
-          this.waitUntilStarted_trigger.call();
+        if (this.isUIStarted)
+          this.checkFilters();
         return;
     }
   },
@@ -198,18 +194,18 @@ ForceFilterStatusStartupService.prototype = {
     var self = this;
     var changedCount = { value : 0 };
     var existingFilters = this.allExistingFilters;
-    return Deferred.next(function() {
-        return self.removeDisallowedFilters(existingFilters, changedCount);
-      })
-      .error(function(error) {
+    setTimeout(function() {
+      try {
+        self.removeDisallowedFilters(existingFilters, changedCount);
+      }
+      catch(error) {
         Components.utils.reportError(error);
         gLogger.log('unexpected error: ' + error + '\n' + error.stack);
-      })
-      .next(function() {
-        self.checking = false;
-        if (changedCount.value > 0)
-          self.restart();
-      });
+      }
+      self.checking = false;
+      if (changedCount.value > 0)
+        self.restart();
+    }, 0);
   },
 
   removeDisallowedFilters : function(aFilters, aChangedCount)
@@ -251,14 +247,6 @@ ForceFilterStatusStartupService.prototype = {
       });
   },
 
-
-  waitUntilStarted : function() {
-    if (this.ready)
-      return;
-
-    this.waitUntilStarted_trigger = new Deferred();
-    return this.waitUntilStarted_trigger;
-  },
 
   restart : function()
   {
